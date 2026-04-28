@@ -2,17 +2,19 @@
 
 function Top5Row({ entry, max, isFav, onToggleFav }) {
   const D = window.__CARTOLA_DATA;
+  const team = D.teamById(entry.team);
+  const pos  = D.posById(entry.pos);
   return (
     <div className="top5-row" style={{position:'relative'}}>
       <span className="top5-row__rank">{entry.rank}.</span>
       <div className="top5-row__player">
-        <Crest team={D.teamById(entry.team)} size={20}/>
+        <Crest team={team} size={20}/>
         <div style={{minWidth:0}}>
           <div className="top5-row__name">{entry.name}</div>
-          <div className="top5-row__pos">{D.posById(entry.pos).sigla}</div>
+          <div className="top5-row__pos">{pos ? pos.sigla : entry.pos}</div>
         </div>
       </div>
-      <div className="top5-row__bar"><i style={{width:(entry.pts/max)*100+'%'}}/></div>
+      <div className="top5-row__bar"><i style={{width: max > 0 ? (entry.pts/max)*100+'%' : '0%'}}/></div>
       <span className="top5-row__pts tnum">{entry.pts.toFixed(1)}</span>
       <Star
         on={isFav}
@@ -32,7 +34,10 @@ function PageTop5({ favs, toggleFav }) {
       <div className="page__head">
         <div>
           <h1 className="page__title">Top 5 <em>pontuadores</em><br/>adversários</h1>
-          <p className="page__sub">Os 5 maiores pontuadores que cada time enfrentará — recorte: últimos 3 jogos com mesmo mando que terão nesta rodada. Toque na estrela para favoritar — vai aparecer no topo da escalação.</p>
+          <p className="page__sub">
+            Os 5 jogadores de maior média de cada time que vai enfrentar cada defesa nesta rodada.
+            Toque na estrela para favoritar — vai aparecer no topo da escalação.
+          </p>
         </div>
         <div className="page__kicker">
           <span className="num tnum">5</span>
@@ -44,10 +49,13 @@ function PageTop5({ favs, toggleFav }) {
         {D.MATCHES.map(m => {
           const h = D.teamById(m.home);
           const a = D.teamById(m.away);
-          const top5H = D.makeTop5(h.id).map((t,i)=>({...t, rank:i+1}));
-          const top5A = D.makeTop5(a.id).map((t,i)=>({...t, rank:i+1}));
-          const maxH = Math.max(...top5H.map(x=>x.pts));
-          const maxA = Math.max(...top5A.map(x=>x.pts));
+
+          // Quem ataca a defesa do HOME são jogadores do AWAY, e vice-versa
+          const top5H = D.makeTop5(h.id, a.id).map((t,i) => ({...t, rank:i+1}));
+          const top5A = D.makeTop5(a.id, h.id).map((t,i) => ({...t, rank:i+1}));
+          const maxH = top5H.length ? Math.max(...top5H.map(x => x.pts)) : 1;
+          const maxA = top5A.length ? Math.max(...top5A.map(x => x.pts)) : 1;
+
           return (
             <div key={m.id} className="top5-block">
               <div className="top5-block__head">
@@ -66,16 +74,22 @@ function PageTop5({ favs, toggleFav }) {
               </div>
 
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:18}}>
+                {/* Coluna esquerda: quem ataca a defesa do HOME = jogadores do AWAY */}
                 <div>
-                  <div className="eyebrow" style={{marginBottom:6}}>Cederam para…</div>
-                  {top5H.map((t) => (
+                  <div className="eyebrow" style={{marginBottom:6}}>
+                    Atacam {h.sigla} →
+                  </div>
+                  {top5H.map(t => (
                     <Top5Row key={t.id} entry={t} max={maxH}
                       isFav={favs.has(t.id)} onToggleFav={toggleFav}/>
                   ))}
                 </div>
+                {/* Coluna direita: quem ataca a defesa do AWAY = jogadores do HOME */}
                 <div>
-                  <div className="eyebrow" style={{marginBottom:6}}>Cederam para…</div>
-                  {top5A.map((t) => (
+                  <div className="eyebrow" style={{marginBottom:6}}>
+                    Atacam {a.sigla} →
+                  </div>
+                  {top5A.map(t => (
                     <Top5Row key={t.id} entry={t} max={maxA}
                       isFav={favs.has(t.id)} onToggleFav={toggleFav}/>
                   ))}
