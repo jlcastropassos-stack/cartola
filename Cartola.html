@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>Cartola — Escalação</title>
+<link rel="stylesheet" href="styles.css?v=7"/>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="page1-lineup.jsx"></script>
+<script type="text/babel" src="page2-confrontos.jsx"></script>
+<script type="text/babel" src="page3-defensive.jsx"></script>
+<script type="text/babel" src="page4-conceded.jsx"></script>
+<script type="text/babel" src="page5-top5.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+const TABS = [
+  { id: 'lineup',     num: '01', label: 'Escalar meu time' },
+  { id: 'confrontos', num: '02', label: 'Confrontos' },
+  { id: 'defensive',  num: '03', label: 'Defensivas' },
+  { id: 'conceded',   num: '04', label: 'Cedida / posição' },
+  { id: 'top5',       num: '05', label: 'Top 5 adversários' },
+];
+
+function App() {
+  const [tab, setTab] = React.useState('lineup');
+  const [drillMatch, setDrillMatch] = React.useState(null);
+  const [favs, setFavs] = React.useState(new Set());
+  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tw.theme === 'light' ? 'light' : 'dark');
+  }, [tw.theme]);
+
+  const toggleFav = React.useCallback((id) => {
+    setFavs(s => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }, []);
+
+  const goToDrill = (matchId) => {
+    setDrillMatch(matchId);
+    setTab('defensive');
+  };
+
+  return (
+    <div className="app">
+      <header className="masthead">
+        <div className="masthead__brand">
+          <span className="dot"/>
+          <span>Cartola</span>
+        </div>
+        <div className="masthead__meta">
+          <span>Rodada 12</span>
+          <span className="masthead__rule hide-sm"/>
+          <span className="hide-sm">Sex 18:00</span>
+          <span className="masthead__rule"/>
+          <span style={{color:'var(--accent)'}}>● ao vivo</span>
+        </div>
+      </header>
+
+      <nav className="tabnav">
+        {TABS.map(t => (
+          <button key={t.id}
+            className={`tabnav__item ${tab === t.id ? 'is-active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            <span className="tabnav__num">{t.num}/</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'lineup'     && <PageLineup favs={favs} toggleFav={toggleFav}/>}
+      {tab === 'confrontos' && <PageConfrontos goToDrill={goToDrill}/>}
+      {tab === 'defensive'  && <PageDefensive initialMatchId={drillMatch}/>}
+      {tab === 'conceded'   && <PageConceded/>}
+      {tab === 'top5'       && <PageTop5 favs={favs} toggleFav={toggleFav}/>}
+
+      <TweaksPanel>
+        <TweakSection label="Aparência"/>
+        <TweakRadio label="Tema" value={tw.theme}
+          options={['dark','light']}
+          onChange={(v)=>setTweak('theme', v)}/>
+        <TweakSection label="Sobre"/>
+        <div style={{fontSize:11, color:'rgba(0,0,0,0.55)', lineHeight:1.4}}>
+          Dados de exemplo. Substitua <code>data.js</code> pela sua base real (escudos como URL no campo <code>crest</code>).
+        </div>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
