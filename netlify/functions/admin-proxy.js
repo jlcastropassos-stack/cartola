@@ -32,7 +32,19 @@ exports.handler = async (event) => {
   async function fetchSofaScore(round) {
     const r = await fetch(
       `https://api.sofascore.com/api/v1/unique-tournament/325/season/87678/events/round/${round}`,
-      { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } }
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'pt-BR,pt;q=0.9',
+          'Referer': 'https://www.sofascore.com/',
+          'Origin': 'https://www.sofascore.com',
+          'sec-ch-ua': '"Chromium";v="124"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-site',
+        },
+      }
     );
     if (!r.ok) throw new Error(`SofaScore retornou ${r.status}`);
     const data = await r.json();
