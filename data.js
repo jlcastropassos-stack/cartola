@@ -151,16 +151,22 @@ window.__CARTOLA_DATA = (() => {
       }));
 
       // Confrontos da rodada
-      MATCHES = (sofa.matches || [])
-        .filter(m => SOFA_TO_CARTOLA[m.homeSigla] && SOFA_TO_CARTOLA[m.awaySigla])
-        .map((m, i) => ({
-          id:     `m${i+1}`,
-          home:   SOFA_TO_CARTOLA[m.homeSigla],
-          away:   SOFA_TO_CARTOLA[m.awaySigla],
-          date:   formatTimestamp(m.timestamp),
+      // Suporta dois formatos:
+      // 1. Admin manual: { home: "262", away: "263", date: "Sáb 18:30" }
+      // 2. SofaScore:    { homeSigla: "FLA", awaySigla: "BOT", timestamp: 123 }
+      MATCHES = (sofa.matches || []).map((m, i) => {
+        const homeId = m.home || SOFA_TO_CARTOLA[m.homeSigla];
+        const awayId = m.away || SOFA_TO_CARTOLA[m.awaySigla];
+        if (!homeId || !awayId) return null;
+        return {
+          id:     m.id || `m${i+1}`,
+          home:   homeId,
+          away:   awayId,
+          date:   m.date || formatTimestamp(m.timestamp) || 'A confirmar',
           venue:  m.venue || '',
-          sofaId: m.id,
-        }));
+          sofaId: m.sofaId || m.id,
+        };
+      }).filter(Boolean);
 
       if (MATCHES.length === 0) MATCHES = geraMatchesFallback();
 
