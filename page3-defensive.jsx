@@ -25,10 +25,10 @@ function Last3Strip({ team, side }) {
 
 function StatGrid({ stats }) {
   const cells = [
-    { lbl: 'Gols marcados',  val: stats.gf, sub: 'média', barFor: stats.gf, barMax: 5 },
-    { lbl: 'Gols sofridos',  val: stats.ga, sub: 'média', barFor: stats.ga, barMax: 5, neg: true },
-    { lbl: 'Saídas zero (SG)', val: stats.cs, sub: '/ 3', barFor: stats.cs, barMax: 3 },
-    { lbl: 'Finalizações',   val: stats.shots, sub: 'a favor', barFor: stats.shots, barMax: 25 },
+    { lbl: 'Gols marcados',    val: stats.gf,  sub: 'média',  barFor: stats.gf,  barMax: 5 },
+    { lbl: 'Gols sofridos',    val: stats.ga,  sub: 'média',  barFor: stats.ga,  barMax: 5, neg: true },
+    { lbl: 'Saídas zero (SG)', val: stats.cs,  sub: '/ 3',    barFor: stats.cs,  barMax: 3 },
+    { lbl: 'Finalizações',     val: stats.shots, sub: 'a favor', barFor: stats.shots, barMax: 25 },
   ];
   return (
     <div className="stat-grid">
@@ -53,8 +53,9 @@ function StatGrid({ stats }) {
 
 function DrillCol({ team, side }) {
   const D = window.__CARTOLA_DATA;
-  const stats = D.makeDefStats(team.id);
-  const xgVals = [stats.xgFor*0.8, stats.xgFor*1.2, stats.xgFor];
+  // Passa o side para makeDefStats — mesmos 3 jogos com mando preservado
+  const stats = D.makeDefStats(team.id, side);
+  const xgVals = [stats.xgFor*0.8, stats.xgFor*1.1, stats.xgFor*0.9, stats.xgFor*1.2, stats.xgFor];
   return (
     <div className="drill__col">
       <div className="drill__col-head">
@@ -89,7 +90,7 @@ function DrillCol({ team, side }) {
             </div>
           </div>
         </div>
-        <Sparkline values={xgVals.concat([stats.xgFor*0.9, stats.xgFor*1.1])} height={32}/>
+        <Sparkline values={xgVals} height={32}/>
       </div>
 
       <div style={{marginTop:14}}>
