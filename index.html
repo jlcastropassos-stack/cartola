@@ -18,14 +18,34 @@
 <script type="text/babel" src="page3-defensive.jsx"></script>
 <script type="text/babel" src="page4-conceded.jsx"></script>
 <script type="text/babel" src="page5-top5.jsx"></script>
+
+<style>
+.loading-screen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100vh; gap: 16px;
+  background: var(--bg, #fff);
+  color: var(--text-mute, #888);
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+}
+.loading-spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid #e0e0e0;
+  border-top-color: #22c55e;
+  animation: spin .8s linear infinite;
+}
+.loading-error {
+  color: #f87171; text-align: center; max-width: 320px; line-height: 1.5;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel">
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "theme": "light"
-}/*EDITMODE-END*/;
+const TWEAK_DEFAULTS = { "theme": "light" };
 
 const TABS = [
   { id: 'lineup',     num: '01', label: 'Escalar meu time' },
@@ -35,28 +55,53 @@ const TABS = [
   { id: 'top5',       num: '05', label: 'Top 5 adversários' },
 ];
 
+function LoadingScreen({ error }) {
+  return (
+    <div className="loading-screen">
+      {error
+        ? <div className="loading-error">❌ {error}<br/><br/><small>Acesse o admin e atualize os dados.</small></div>
+        : <>
+            <div className="loading-spinner"/>
+            <span>Carregando dados...</span>
+          </>
+      }
+    </div>
+  );
+}
+
 function App() {
-  const [tab, setTab] = React.useState('lineup');
+  const [ready, setReady] = React.useState(window.__CARTOLA_DATA.loaded);
+  const [error, setError]  = React.useState(null);
+  const [tab, setTab]       = React.useState('lineup');
   const [drillMatch, setDrillMatch] = React.useState(null);
-  const [favs, setFavs] = React.useState(new Set());
-  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [favs, setFavs]     = React.useState(new Set());
+  const [tw, setTweak]      = useTweaks(TWEAK_DEFAULTS);
 
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', tw.theme === 'light' ? 'light' : 'dark');
   }, [tw.theme]);
 
-  const toggleFav = React.useCallback((id) => {
-    setFavs(s => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
+  React.useEffect(() => {
+    if (ready) return;
+    window.__CARTOLA_DATA.onReady(() => {
+      const D = window.__CARTOLA_DATA;
+      if (D.PLAYERS.length === 0 && D.MATCHES.length === 0) {
+        setError('Nenhum dado encontrado no repositório.');
+      }
+      setReady(true);
     });
   }, []);
 
-  const goToDrill = (matchId) => {
-    setDrillMatch(matchId);
-    setTab('defensive');
-  };
+  const toggleFav = React.useCallback((id) => {
+    setFavs(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }, []);
+
+  const goToDrill = (matchId) => { setDrillMatch(matchId); setTab('defensive'); };
+
+  if (!ready) return <LoadingScreen />;
+  if (error)  return <LoadingScreen error={error} />;
+
+  const D = window.__CARTOLA_DATA;
 
   return (
     <div className="app">
@@ -66,11 +111,10 @@ function App() {
           <span>Cartola</span>
         </div>
         <div className="masthead__meta">
-          <span>Rodada 12</span>
+          <span>Rodada {D.rodadaAtual}</span>
           <span className="masthead__rule hide-sm"/>
-          <span className="hide-sm">Sex 18:00</span>
           <span className="masthead__rule"/>
-          <span style={{color:'var(--accent)'}}>● ao vivo</span>
+          <span style={{color:'var(--accent)'}}>● {D.PLAYERS.length} atletas</span>
         </div>
       </header>
 
@@ -86,20 +130,20 @@ function App() {
         ))}
       </nav>
 
-      {tab === 'lineup'     && <PageLineup favs={favs} toggleFav={toggleFav}/>}
-      {tab === 'confrontos' && <PageConfrontos goToDrill={goToDrill}/>}
-      {tab === 'defensive'  && <PageDefensive initialMatchId={drillMatch}/>}
+      {tab === 'lineup'     && <PageLineup     favs={favs} toggleFav={toggleFav}/>}
+      {tab === 'confrontos' && <PageConfrontos  goToDrill={goToDrill}/>}
+      {tab === 'defensive'  && <PageDefensive   initialMatchId={drillMatch}/>}
       {tab === 'conceded'   && <PageConceded/>}
-      {tab === 'top5'       && <PageTop5 favs={favs} toggleFav={toggleFav}/>}
+      {tab === 'top5'       && <PageTop5        favs={favs} toggleFav={toggleFav}/>}
 
       <TweaksPanel>
         <TweakSection label="Aparência"/>
         <TweakRadio label="Tema" value={tw.theme}
           options={['dark','light']}
-          onChange={(v)=>setTweak('theme', v)}/>
-        <TweakSection label="Sobre"/>
-        <div style={{fontSize:11, color:'rgba(0,0,0,0.55)', lineHeight:1.4}}>
-          Dados de exemplo. Substitua <code>data.js</code> pela sua base real (escudos como URL no campo <code>crest</code>).
+          onChange={(v) => setTweak('theme', v)}/>
+        <TweakSection label="Dados"/>
+        <div style={{fontSize:11, color:'rgba(0,0,0,0.5)', lineHeight:1.5}}>
+          Rodada {D.rodadaAtual} · {D.PLAYERS.length} atletas · {D.MATCHES.length} jogos
         </div>
       </TweaksPanel>
     </div>
