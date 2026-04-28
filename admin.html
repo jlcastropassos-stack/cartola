@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Admin — Cartola Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f0f; color: #e0e0e0;
+    min-height: 100vh; padding: 32px 24px;
+  }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #666; margin-bottom: 32px; }
+  .card {
+    background: #1a1a1a; border: 1px solid #2a2a2a;
+    border-radius: 12px; padding: 24px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #aaa; text-transform: uppercase; letter-spacing: .08em; }
+  .status {
+    font-size: 13px; font-family: monospace;
+    background: #111; border-radius: 8px;
+    padding: 12px 16px; margin: 12px 0;
+    min-height: 48px; color: #4ade80;
+    white-space: pre-wrap; line-height: 1.6;
+  }
+  .status.error { color: #f87171; }
+  .status.info  { color: #60a5fa; }
+  button {
+    background: #22c55e; color: #000;
+    border: none; border-radius: 8px;
+    padding: 12px 24px; font-size: 14px; font-weight: 700;
+    cursor: pointer; width: 100%; transition: opacity .15s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.secondary {
+    background: #2a2a2a; color: #e0e0e0;
+    margin-top: 8px;
+  }
+  .row { display: flex; gap: 8px; }
+  .row button { flex: 1; }
+  label { font-size: 12px; color: #666; display: block; margin-bottom: 6px; }
+  input {
+    width: 100%; background: #111; border: 1px solid #333;
+    border-radius: 6px; padding: 10px 12px; color: #e0e0e0;
+    font-size: 13px; margin-bottom: 12px;
+  }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+  }
+  .badge.ok  { background: #14532d; color: #4ade80; }
+  .badge.err { background: #7f1d1d; color: #f87171; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Admin — Cartola Dashboard</h1>
+  <p class="sub">Atualiza os dados do Cartola e SofaScore e salva no repositório GitHub.</p>
+
+  <div class="card">
+    <h2>Status atual</h2>
+    <div class="status info" id="status-atual">Clique em "Verificar" para checar o mercado.</div>
+    <button class="secondary" onclick="verificarStatus()">Verificar status do mercado</button>
+  </div>
+
+  <div class="card">
+    <h2>Atualizar dados</h2>
+    <label>Rodada (detectada automaticamente ao verificar)</label>
+    <input type="number" id="rodada-input" value="14" min="1" max="38"/>
+    <div class="status info" id="status-update">Aguardando...</div>
+    <button id="btn-update" onclick="atualizarDados()">🔄 Atualizar dados agora</button>
+    <button class="secondary" onclick="apenasCartola()">Só Cartola (mercado)</button>
+    <button class="secondary" onclick="apenasSofa()">Só SofaScore (confrontos)</button>
+  </div>
+
+  <div class="card">
+    <h2>Último update</h2>
+    <div class="status info" id="status-ultimo">Carregando...</div>
+  </div>
+</div>
+
+<script>
+const GITHUB_OWNER = 'jlcastropassos-stack';
+const GITHUB_REPO  = 'cartola';
+const GITHUB_BRANCH = 'main';
+
+// Token vem da variável de ambiente via Netlify Function
+// Para evitar expor o token no frontend, usamos uma function intermediária
+const API_BASE = '/.netlify/functions';
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function log(id, msg, type = '') {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `status ${type}`;
+}
+
+function formatDate(d) {
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+// ── Verificar status ─────────────────────────────────────────────────
+
+async function verificarStatus() {
+  log('status-atual', 'Buscando status do mercado...', 'info');
+  try {
+    const r = await fetch(`${API_BASE}/admin-proxy?action=status`);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    const statusTxt = d.status_mercado === 1 ? '🟢 ABERTO' : '🔴 FECHADO';
+    document.getElementById('rodada-input').value = d.rodada_atual;
+    log('status-atual',
+      `Rodada atual: ${d.rodada_atual}\nMercado: ${statusTxt}\nFechamento: ${d.fechamento?.timestamp ? formatDate(new Date(d.fechamento.timestamp * 1000)) : '—'}`,
+      ''
+    );
+  } catch (err) {
+    log('status-atual', `Erro: ${err.message}`, 'error');
+  }
+}
+
+// ── Salvar no GitHub ─────────────────────────────────────────────────
+
+async function salvarNoGithub(filename, content) {
+  const r = await fetch(`${API_BASE}/admin-proxy?action=save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content }),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+
+// ── Atualizar tudo ───────────────────────────────────────────────────
+
+async function atualizarDados() {
+  const rodada = parseInt(document.getElementById('rodada-input').value, 10);
+  document.getElementById('btn-update').disabled = true;
+  log('status-update', 'Buscando dados do Cartola...', 'info');
+
+  try {
+    // 1. Cartola
+    const rc = await fetch(`${API_BASE}/admin-proxy?action=cartola`);
+    const cartola = await rc.json();
+    if (cartola.error) throw new Error('Cartola: ' + cartola.error);
+    log('status-update', `Cartola OK — ${Object.keys(cartola.atletas || {}).length} atletas\nBuscando SofaScore...`, 'info');
+
+    // 2. SofaScore
+    const rs = await fetch(`${API_BASE}/admin-proxy?action=sofa&round=${rodada}`);
+    const sofa = await rs.json();
+    if (sofa.error) throw new Error('SofaScore: ' + sofa.error);
+    log('status-update', `SofaScore OK — ${(sofa.matches || []).length} jogos\nSalvando no GitHub...`, 'info');
+
+    // 3. Salva metadados
+    const meta = {
+      rodada,
+      atualizado_em: new Date().toISOString(),
+      total_atletas: Object.keys(cartola.atletas || {}).length,
+      total_jogos: (sofa.matches || []).length,
+    };
+
+    await Promise.all([
+      salvarNoGithub('dados/cartola-mercado.json', JSON.stringify(cartola)),
+      salvarNoGithub('dados/sofascore-rodada.json', JSON.stringify(sofa)),
+      salvarNoGithub('dados/meta.json', JSON.stringify(meta)),
+    ]);
+
+    log('status-update',
+      `✅ Tudo atualizado com sucesso!\n\nRodada: ${rodada}\nAtletas: ${meta.total_atletas}\nJogos: ${meta.total_jogos}\nHorário: ${formatDate(new Date())}`,
+      ''
+    );
+    carregarUltimoUpdate();
+  } catch (err) {
+    log('status-update', `❌ Erro: ${err.message}`, 'error');
+  } finally {
+    document.getElementById('btn-update').disabled = false;
+  }
+}
+
+async function apenasCartola() {
+  log('status-update', 'Buscando Cartola...', 'info');
+  try {
+    const rc = await fetch(`${API_BASE}/admin-proxy?action=cartola`);
+    const cartola = await rc.json();
+    if (cartola.error) throw new Error(cartola.error);
+    await salvarNoGithub('dados/cartola-mercado.json', JSON.stringify(cartola));
+    log('status-update', `✅ Cartola atualizado — ${Object.keys(cartola.atletas || {}).length} atletas`, '');
+  } catch (err) {
+    log('status-update', `❌ Erro: ${err.message}`, 'error');
+  }
+}
+
+async function apenasSofa() {
+  const rodada = parseInt(document.getElementById('rodada-input').value, 10);
+  log('status-update', `Buscando SofaScore rodada ${rodada}...`, 'info');
+  try {
+    const rs = await fetch(`${API_BASE}/admin-proxy?action=sofa&round=${rodada}`);
+    const sofa = await rs.json();
+    if (sofa.error) throw new Error(sofa.error);
+    await salvarNoGithub('dados/sofascore-rodada.json', JSON.stringify(sofa));
+    log('status-update', `✅ SofaScore atualizado — ${(sofa.matches || []).length} jogos`, '');
+  } catch (err) {
+    log('status-update', `❌ Erro: ${err.message}`, 'error');
+  }
+}
+
+// ── Último update ────────────────────────────────────────────────────
+
+async function carregarUltimoUpdate() {
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/dados/meta.json?t=${Date.now()}`);
+    if (!r.ok) throw new Error('Sem dados ainda');
+    const d = await r.json();
+    log('status-ultimo',
+      `Última atualização: ${formatDate(new Date(d.atualizado_em))}\nRodada: ${d.rodada} | Atletas: ${d.total_atletas} | Jogos: ${d.total_jogos}`,
+      ''
+    );
+  } catch {
+    log('status-ultimo', 'Nenhum dado salvo ainda.', 'info');
+  }
+}
+
+carregarUltimoUpdate();
+</script>
+</body>
+</html>
