@@ -11,14 +11,17 @@
     background: #0f0f0f; color: #e0e0e0;
     min-height: 100vh; padding: 32px 24px;
   }
-  .container { max-width: 600px; margin: 0 auto; }
+  .container { max-width: 640px; margin: 0 auto; }
   h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .sub { font-size: 13px; color: #666; margin-bottom: 32px; }
   .card {
     background: #1a1a1a; border: 1px solid #2a2a2a;
     border-radius: 12px; padding: 24px; margin-bottom: 16px;
   }
-  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #aaa; text-transform: uppercase; letter-spacing: .08em; }
+  .card h2 {
+    font-size: 12px; font-weight: 600; margin-bottom: 16px;
+    color: #666; text-transform: uppercase; letter-spacing: .08em;
+  }
   .status {
     font-size: 13px; font-family: monospace;
     background: #111; border-radius: 8px;
@@ -33,50 +36,72 @@
     border: none; border-radius: 8px;
     padding: 12px 24px; font-size: 14px; font-weight: 700;
     cursor: pointer; width: 100%; transition: opacity .15s;
+    margin-top: 8px;
   }
   button:hover { opacity: .85; }
   button:disabled { opacity: .4; cursor: not-allowed; }
-  button.secondary {
-    background: #2a2a2a; color: #e0e0e0;
-    margin-top: 8px;
-  }
-  .row { display: flex; gap: 8px; }
-  .row button { flex: 1; }
-  label { font-size: 12px; color: #666; display: block; margin-bottom: 6px; }
-  input {
+  button.sec { background: #2a2a2a; color: #e0e0e0; }
+  button.warn { background: #b45309; color: #fff; }
+  label { font-size: 12px; color: #888; display: block; margin-bottom: 6px; margin-top: 12px; }
+  input, select {
     width: 100%; background: #111; border: 1px solid #333;
     border-radius: 6px; padding: 10px 12px; color: #e0e0e0;
-    font-size: 13px; margin-bottom: 12px;
+    font-size: 13px;
   }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 600; margin-left: 8px;
+  .match-row {
+    display: grid; grid-template-columns: 1fr 24px 1fr 100px;
+    gap: 8px; align-items: center; margin-bottom: 8px;
   }
-  .badge.ok  { background: #14532d; color: #4ade80; }
-  .badge.err { background: #7f1d1d; color: #f87171; }
+  .match-row select { padding: 8px 10px; }
+  .match-row span { text-align: center; color: #666; font-size: 12px; }
+  .match-row input { padding: 8px 10px; font-size: 12px; }
+  .add-row {
+    background: none; border: 1px dashed #333; color: #666;
+    font-size: 12px; padding: 8px; margin-top: 4px;
+    width: 100%; cursor: pointer; border-radius: 6px;
+  }
+  .add-row:hover { border-color: #555; color: #aaa; }
+  .remove-btn {
+    background: none; border: none; color: #f87171;
+    cursor: pointer; font-size: 16px; width: auto;
+    padding: 0 4px; margin: 0;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Admin — Cartola Dashboard</h1>
-  <p class="sub">Atualiza os dados do Cartola e SofaScore e salva no repositório GitHub.</p>
+  <p class="sub">Atualiza dados do Cartola e configura os confrontos da rodada.</p>
 
+  <!-- Status -->
   <div class="card">
-    <h2>Status atual</h2>
-    <div class="status info" id="status-atual">Clique em "Verificar" para checar o mercado.</div>
-    <button class="secondary" onclick="verificarStatus()">Verificar status do mercado</button>
+    <h2>Status do mercado</h2>
+    <div class="status info" id="status-mercado">Clique em verificar para checar.</div>
+    <button class="sec" onclick="verificarStatus()">Verificar status</button>
   </div>
 
+  <!-- Cartola -->
   <div class="card">
-    <h2>Atualizar dados</h2>
-    <label>Rodada (detectada automaticamente ao verificar)</label>
-    <input type="number" id="rodada-input" value="14" min="1" max="38"/>
-    <div class="status info" id="status-update">Aguardando...</div>
-    <button id="btn-update" onclick="atualizarDados()">🔄 Atualizar dados agora</button>
-    <button class="secondary" onclick="apenasCartola()">Só Cartola (mercado)</button>
-    <button class="secondary" onclick="apenasSofa()">Só SofaScore (confrontos)</button>
+    <h2>Dados do Cartola</h2>
+    <div class="status info" id="status-cartola">Aguardando...</div>
+    <button onclick="atualizarCartola()">Atualizar mercado do Cartola</button>
   </div>
 
+  <!-- Confrontos -->
+  <div class="card">
+    <h2>Confrontos da rodada</h2>
+    <p style="font-size:12px;color:#666;margin-bottom:16px;">
+      Configure os 10 jogos da rodada. Horários no fuso de Brasília.
+    </p>
+
+    <div id="matches-container"></div>
+    <button class="add-row" onclick="adicionarJogo()">+ Adicionar jogo</button>
+
+    <div class="status info" id="status-confrontos" style="margin-top:16px;">Aguardando...</div>
+    <button onclick="salvarConfrontos()">Salvar confrontos</button>
+  </div>
+
+  <!-- Último update -->
   <div class="card">
     <h2>Último update</h2>
     <div class="status info" id="status-ultimo">Carregando...</div>
@@ -84,148 +109,230 @@
 </div>
 
 <script>
-const GITHUB_OWNER = 'jlcastropassos-stack';
-const GITHUB_REPO  = 'cartola';
-const GITHUB_BRANCH = 'main';
+const GITHUB_OWNER  = 'jlcastropassos-stack';
+const GITHUB_REPO   = 'cartola';
+const API_BASE      = '/.netlify/functions';
 
-// Token vem da variável de ambiente via Netlify Function
-// Para evitar expor o token no frontend, usamos uma function intermediária
-const API_BASE = '/.netlify/functions';
+const TIMES = [
+  {id:'262', sigla:'FLA', name:'Flamengo'},
+  {id:'263', sigla:'BOT', name:'Botafogo'},
+  {id:'264', sigla:'COR', name:'Corinthians'},
+  {id:'265', sigla:'BAH', name:'Bahia'},
+  {id:'266', sigla:'FLU', name:'Fluminense'},
+  {id:'267', sigla:'VAS', name:'Vasco'},
+  {id:'275', sigla:'PAL', name:'Palmeiras'},
+  {id:'276', sigla:'SAO', name:'São Paulo'},
+  {id:'277', sigla:'SAN', name:'Santos'},
+  {id:'280', sigla:'RBB', name:'Bragantino'},
+  {id:'282', sigla:'CAM', name:'Atlético-MG'},
+  {id:'283', sigla:'CRU', name:'Cruzeiro'},
+  {id:'284', sigla:'GRE', name:'Grêmio'},
+  {id:'285', sigla:'INT', name:'Internacional'},
+  {id:'287', sigla:'VIT', name:'Vitória'},
+  {id:'293', sigla:'CAP', name:'Athletico-PR'},
+  {id:'294', sigla:'CFC', name:'Coritiba'},
+  {id:'315', sigla:'CHA', name:'Chapecoense'},
+  {id:'364', sigla:'REM', name:'Remo'},
+  {id:'2305',sigla:'MIR', name:'Mirassol'},
+];
+
+let rodadaAtual = 14;
+let jogos = [];
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function log(id, msg, type = '') {
+function log(id, msg, type='') {
   const el = document.getElementById(id);
   el.textContent = msg;
   el.className = `status ${type}`;
 }
 
 function formatDate(d) {
-  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  return d.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
 }
 
-// ── Verificar status ─────────────────────────────────────────────────
+function selectOptions(selectedId='') {
+  return TIMES.map(t =>
+    `<option value="${t.id}" ${t.id===selectedId?'selected':''}>${t.sigla} — ${t.name}</option>`
+  ).join('');
+}
+
+// ── Render confrontos ────────────────────────────────────────────────
+
+function renderJogos() {
+  const c = document.getElementById('matches-container');
+  c.innerHTML = jogos.map((j, i) => `
+    <div class="match-row">
+      <select onchange="jogos[${i}].home=this.value">${selectOptions(j.home)}</select>
+      <span>×</span>
+      <select onchange="jogos[${i}].away=this.value">${selectOptions(j.away)}</select>
+      <input type="text" value="${j.date}" placeholder="Sáb 20:30"
+        onchange="jogos[${i}].date=this.value" style="font-size:12px"/>
+      <button class="remove-btn" onclick="removerJogo(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function adicionarJogo() {
+  jogos.push({ home: '262', away: '263', date: '' });
+  renderJogos();
+}
+
+function removerJogo(i) {
+  jogos.splice(i, 1);
+  renderJogos();
+}
+
+// ── Status ───────────────────────────────────────────────────────────
 
 async function verificarStatus() {
-  log('status-atual', 'Buscando status do mercado...', 'info');
+  log('status-mercado', 'Verificando...', 'info');
   try {
     const r = await fetch(`${API_BASE}/admin-proxy?action=status`);
     const d = await r.json();
     if (d.error) throw new Error(d.error);
-
+    rodadaAtual = d.rodada_atual || 14;
     const statusTxt = d.status_mercado === 1 ? '🟢 ABERTO' : '🔴 FECHADO';
-    document.getElementById('rodada-input').value = d.rodada_atual;
-    log('status-atual',
-      `Rodada atual: ${d.rodada_atual}\nMercado: ${statusTxt}\nFechamento: ${d.fechamento?.timestamp ? formatDate(new Date(d.fechamento.timestamp * 1000)) : '—'}`,
-      ''
-    );
-  } catch (err) {
-    log('status-atual', `Erro: ${err.message}`, 'error');
+    const fechamento = d.fechamento?.timestamp
+      ? formatDate(new Date(d.fechamento.timestamp * 1000)) : '—';
+    log('status-mercado',
+      `Rodada: ${rodadaAtual}\nMercado: ${statusTxt}\nFechamento: ${fechamento}`, '');
+  } catch(err) {
+    log('status-mercado', `Erro: ${err.message}`, 'error');
   }
 }
 
-// ── Salvar no GitHub ─────────────────────────────────────────────────
+// ── Cartola ──────────────────────────────────────────────────────────
 
-async function salvarNoGithub(filename, content) {
+async function atualizarCartola() {
+  log('status-cartola', 'Buscando dados do Cartola...', 'info');
+  try {
+    const r = await fetch(`${API_BASE}/admin-proxy?action=cartola`);
+    const cartola = await r.json();
+    if (cartola.error) throw new Error(cartola.error);
+
+    log('status-cartola', `Salvando ${Object.keys(cartola.atletas||{}).length} atletas no GitHub...`, 'info');
+    await salvarGithub('dados/cartola-mercado.json', JSON.stringify(cartola));
+
+    log('status-cartola',
+      `✅ Cartola atualizado!\n${Object.keys(cartola.atletas||{}).length} atletas · Rodada ${cartola.rodada||rodadaAtual}\nHorário: ${formatDate(new Date())}`, '');
+    salvarMeta();
+  } catch(err) {
+    log('status-cartola', `❌ Erro: ${err.message}`, 'error');
+  }
+}
+
+// ── Confrontos ───────────────────────────────────────────────────────
+
+async function salvarConfrontos() {
+  // Lê os selects atuais antes de salvar
+  const rows = document.querySelectorAll('.match-row');
+  const matchesFinais = Array.from(rows).map((row, i) => {
+    const selects = row.querySelectorAll('select');
+    const input   = row.querySelector('input');
+    return {
+      id:    `m${i+1}`,
+      home:  selects[0]?.value || jogos[i]?.home,
+      away:  selects[1]?.value || jogos[i]?.away,
+      date:  input?.value || jogos[i]?.date || '',
+      venue: '',
+    };
+  });
+
+  if (matchesFinais.length === 0) {
+    log('status-confrontos', '❌ Adicione pelo menos um jogo.', 'error');
+    return;
+  }
+
+  log('status-confrontos', 'Salvando confrontos no GitHub...', 'info');
+  try {
+    const payload = { round: rodadaAtual, matches: matchesFinais, source: 'manual' };
+    await salvarGithub('dados/sofascore-rodada.json', JSON.stringify(payload));
+    log('status-confrontos',
+      `✅ ${matchesFinais.length} confrontos salvos!\nRodada: ${rodadaAtual}\nHorário: ${formatDate(new Date())}`, '');
+    salvarMeta();
+    carregarUltimoUpdate();
+  } catch(err) {
+    log('status-confrontos', `❌ Erro: ${err.message}`, 'error');
+  }
+}
+
+// ── GitHub ───────────────────────────────────────────────────────────
+
+async function salvarGithub(filename, content) {
   const r = await fetch(`${API_BASE}/admin-proxy?action=save`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename, content }),
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({filename, content}),
   });
   const d = await r.json();
   if (d.error) throw new Error(d.error);
   return d;
 }
 
-// ── Atualizar tudo ───────────────────────────────────────────────────
-
-async function atualizarDados() {
-  const rodada = parseInt(document.getElementById('rodada-input').value, 10);
-  document.getElementById('btn-update').disabled = true;
-  log('status-update', 'Buscando dados do Cartola...', 'info');
-
+async function salvarMeta() {
   try {
-    // 1. Cartola
-    const rc = await fetch(`${API_BASE}/admin-proxy?action=cartola`);
-    const cartola = await rc.json();
-    if (cartola.error) throw new Error('Cartola: ' + cartola.error);
-    log('status-update', `Cartola OK — ${Object.keys(cartola.atletas || {}).length} atletas\nBuscando SofaScore...`, 'info');
-
-    // 2. SofaScore
-    const rs = await fetch(`${API_BASE}/admin-proxy?action=sofa&round=${rodada}`);
-    const sofa = await rs.json();
-    if (sofa.error) throw new Error('SofaScore: ' + sofa.error);
-    log('status-update', `SofaScore OK — ${(sofa.matches || []).length} jogos\nSalvando no GitHub...`, 'info');
-
-    // 3. Salva metadados
     const meta = {
-      rodada,
+      rodada: rodadaAtual,
       atualizado_em: new Date().toISOString(),
-      total_atletas: Object.keys(cartola.atletas || {}).length,
-      total_jogos: (sofa.matches || []).length,
     };
-
-    await Promise.all([
-      salvarNoGithub('dados/cartola-mercado.json', JSON.stringify(cartola)),
-      salvarNoGithub('dados/sofascore-rodada.json', JSON.stringify(sofa)),
-      salvarNoGithub('dados/meta.json', JSON.stringify(meta)),
-    ]);
-
-    log('status-update',
-      `✅ Tudo atualizado com sucesso!\n\nRodada: ${rodada}\nAtletas: ${meta.total_atletas}\nJogos: ${meta.total_jogos}\nHorário: ${formatDate(new Date())}`,
-      ''
-    );
+    await salvarGithub('dados/meta.json', JSON.stringify(meta));
     carregarUltimoUpdate();
-  } catch (err) {
-    log('status-update', `❌ Erro: ${err.message}`, 'error');
-  } finally {
-    document.getElementById('btn-update').disabled = false;
-  }
-}
-
-async function apenasCartola() {
-  log('status-update', 'Buscando Cartola...', 'info');
-  try {
-    const rc = await fetch(`${API_BASE}/admin-proxy?action=cartola`);
-    const cartola = await rc.json();
-    if (cartola.error) throw new Error(cartola.error);
-    await salvarNoGithub('dados/cartola-mercado.json', JSON.stringify(cartola));
-    log('status-update', `✅ Cartola atualizado — ${Object.keys(cartola.atletas || {}).length} atletas`, '');
-  } catch (err) {
-    log('status-update', `❌ Erro: ${err.message}`, 'error');
-  }
-}
-
-async function apenasSofa() {
-  const rodada = parseInt(document.getElementById('rodada-input').value, 10);
-  log('status-update', `Buscando SofaScore rodada ${rodada}...`, 'info');
-  try {
-    const rs = await fetch(`${API_BASE}/admin-proxy?action=sofa&round=${rodada}`);
-    const sofa = await rs.json();
-    if (sofa.error) throw new Error(sofa.error);
-    await salvarNoGithub('dados/sofascore-rodada.json', JSON.stringify(sofa));
-    log('status-update', `✅ SofaScore atualizado — ${(sofa.matches || []).length} jogos`, '');
-  } catch (err) {
-    log('status-update', `❌ Erro: ${err.message}`, 'error');
-  }
+  } catch(e) { /* silencioso */ }
 }
 
 // ── Último update ────────────────────────────────────────────────────
 
 async function carregarUltimoUpdate() {
   try {
-    const r = await fetch(`https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/dados/meta.json?t=${Date.now()}`);
-    if (!r.ok) throw new Error('Sem dados ainda');
+    const r = await fetch(
+      `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/dados/meta.json?t=${Date.now()}`
+    );
+    if (!r.ok) throw new Error('Sem dados');
     const d = await r.json();
     log('status-ultimo',
-      `Última atualização: ${formatDate(new Date(d.atualizado_em))}\nRodada: ${d.rodada} | Atletas: ${d.total_atletas} | Jogos: ${d.total_jogos}`,
-      ''
-    );
+      `Última atualização: ${formatDate(new Date(d.atualizado_em))}\nRodada: ${d.rodada}`, '');
   } catch {
     log('status-ultimo', 'Nenhum dado salvo ainda.', 'info');
   }
 }
 
+async function carregarConfrontosExistentes() {
+  try {
+    const r = await fetch(
+      `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/dados/sofascore-rodada.json?t=${Date.now()}`
+    );
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    rodadaAtual = d.round || 14;
+    if (d.matches && d.matches.length > 0) {
+      jogos = d.matches.map(m => ({
+        home: m.home || '262',
+        away: m.away || '263',
+        date: m.date || '',
+      }));
+    } else {
+      jogos = Array.from({length:10}, (_,i) => ({
+        home: Object.values({
+          '262':'262','263':'263','264':'264','265':'265','266':'266',
+          '267':'267','275':'275','276':'276','277':'277','280':'280',
+        })[i*0] || '262',
+        away: '263', date: '',
+      }));
+    }
+  } catch {
+    // Começa com 10 jogos em branco
+    jogos = Array.from({length:10}, (_,i) => ({
+      home: TIMES[i*2]?.id || '262',
+      away: TIMES[i*2+1]?.id || '263',
+      date: '',
+    }));
+  }
+  renderJogos();
+}
+
+// Init
+carregarConfrontosExistentes();
 carregarUltimoUpdate();
 </script>
 </body>
