@@ -89,10 +89,13 @@ window.__CARTOLA_DATA = (() => {
 
       rodadaAtual = sofa.round || cartola.rodada || 14;
 
-      // Parseia atletas
-      const atletasRaw = cartola.atletas || {};
-      PLAYERS = Object.entries(atletasRaw).map(([id, a]) => ({
-        id:         String(id),
+      // Parseia atletas — suporta array (mercado) ou objeto (pontuados)
+      const atletasRaw = cartola.atletas || [];
+      const atletasArr = Array.isArray(atletasRaw)
+        ? atletasRaw
+        : Object.values(atletasRaw);
+      PLAYERS = atletasArr.map(a => ({
+        id:         String(a.atleta_id),
         name:       a.apelido || '',
         position:   POS_MAP[a.posicao_id] || 'mei',
         team:       String(a.clube_id),
